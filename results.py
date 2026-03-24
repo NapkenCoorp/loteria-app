@@ -9,8 +9,8 @@ def home():
     return render_template("index.html")
 
 
-# 🔄 MAPEAMENTO DAS LOTERIAS
-MAPA_API = {
+# 🔄 MAPA
+MAPA = {
     "mega": "mega-sena",
     "quina": "quina",
     "loto": "lotofacil",
@@ -22,51 +22,79 @@ MAPA_API = {
 }
 
 
-# 🔧 FUNÇÃO PRINCIPAL (API ALTERNATIVA)
+# 🔧 FUNÇÃO SEGURA
 def buscar(tipo):
-    try:
-        if tipo not in MAPA_API:
-            return {"erro": "Loteria inválida"}
 
-        url = f"https://loteriascaixa-api.herokuapp.com/api/{MAPA_API[tipo]}/latest"
+    if tipo not in MAPA:
+        return {"erro": "Loteria inválida"}
 
-        r = requests.get(url, timeout=10)
-        data = r.json()
+    api = MAPA[tipo]
 
-        dezenas = data.get("dezenas", [])
+    # 🔥 LISTA DE APIS (ORDEM DE TENTATIVA)
+    urls = [
+        f"https://loteriascaixa-api.herokuapp.com/api/{api}/latest",
+        f"https://brasilapi.com.br/api/loterias/v1/{api}"
+    ]
 
-        # 🔥 MONTA PADRÃO PRO SEU HTML
-        resultado = {
-            "concurso": data.get("concurso"),
-            "data": data.get("data"),
-            "numeros": " - ".join(dezenas),
-            "status": "Acumulou" if data.get("acumulou") else "Não acumulou",
-            "local": data.get("local", "Não informado"),
-            "ganhadores": data.get("premiacoes", [{}])[0].get("ganhadores", 0),
-            "proximo_premio": data.get("valorEstimadoProximoConcurso", 0),
-            "premios": []
-        }
+    for url in urls:
+        try:
+            r = requests.get(url, timeout=8)
 
-        # 🎯 FORMATA PREMIOS (PADRÃO QUE VOCÊ QUER)
-        for p in data.get("premiacoes", []):
-            resultado["premios"].append({
-                "descricaoFaixa": p.get("descricao"),
-                "numeroDeGanhadores": p.get("ganhadores"),
-                "valorPremio": p.get("valorPremio")
-            })
+            if r.status_code != 200:
+                continue
 
-        return resultado
+            if not r.text.strip():
+                continue
 
-    except Exception as e:
-        return {"erro": str(e)}
+            data = r.json()
+
+            # 🧠 DETECTA QUAL API RESPONDEU
+
+            # API 1 (heroku)
+            if "dezenas" in data:
+                return {
+                    "concurso": data.get("concurso"),
+                    "data": data.get("data"),
+                    "numeros": " - ".join(data.get("dezenas", [])),
+                    "status": "Acumulou" if data.get("acumulou") else "Não acumulou",
+                    "local": data.get("local", ""),
+                    "ganhadores": data.get("premiacoes", [{}])[0].get("ganhadores", 0),
+                    "proximo_premio": data.get("valorEstimadoProximoConcurso", 0),
+                    "premios": [
+                        {
+                            "descricaoFaixa": p.get("descricao"),
+                            "numeroDeGanhadores": p.get("ganhadores"),
+                            "valorPremio": p.get("valorPremio")
+                        }
+                        for p in data.get("premiacoes", [])
+                    ]
+                }
+
+            # API 2 (brasilapi)
+            if "numeros" in data:
+                return {
+                    "concurso": data.get("concurso"),
+                    "data": data.get("data"),
+                    "numeros": " - ".join(data.get("numeros", [])),
+                    "status": data.get("acumulado") and "Acumulou" or "Não acumulou",
+                    "local": "",
+                    "ganhadores": 0,
+                    "proximo_premio": data.get("valorEstimadoProximoConcurso", 0),
+                    "premios": []
+                }
+
+        except:
+            continue
+
+    return {"erro": "Todas APIs falharam"}
 
 
-# 🎰 ROTAS
+# 🎰 ROTA
 @app.route("/<tipo>")
 def rota(tipo):
     return jsonify(buscar(tipo))
 
 
-# ▶️ RODAR
+# ▶️ RUN
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
