@@ -3,51 +3,57 @@ import requests
 
 app = Flask(__name__)
 
-# 🔥 CONFIG PADRÃO (CAIXA)
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
-
-BASE_URL = "https://servicebus2.caixa.gov.br/portaldeloterias/api"
-
-# 🔄 MAPEAMENTO DAS LOTERIAS
-ROTAS = {
-    "mega": "megasena",
-    "quina": "quina",
-    "loto": "lotofacil",
-    "lotomania": "lotomania",
-    "dupla": "duplasena",
-    "time": "timemania",
-    "dia": "diadesorte",
-    "sete": "maismilionaria"
-}
-
 # 🌐 HOME
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
-# 🔧 FUNÇÃO GENÉRICA
-def buscar(loteria):
+# 🔄 MAPEAMENTO DAS LOTERIAS
+MAPA_API = {
+    "mega": "mega-sena",
+    "quina": "quina",
+    "loto": "lotofacil",
+    "lotomania": "lotomania",
+    "dupla": "dupla-sena",
+    "time": "timemania",
+    "dia": "dia-de-sorte",
+    "sete": "mais-milionaria"
+}
 
+
+# 🔧 FUNÇÃO PRINCIPAL (API ALTERNATIVA)
+def buscar(tipo):
     try:
-        url = f"{BASE_URL}/{loteria}"
-        r = requests.get(url, headers=HEADERS, timeout=10)
+        if tipo not in MAPA_API:
+            return {"erro": "Loteria inválida"}
+
+        url = f"https://loteriascaixa-api.herokuapp.com/api/{MAPA_API[tipo]}/latest"
+
+        r = requests.get(url, timeout=10)
         data = r.json()
 
-        dezenas = data.get("listaDezenas", [])
+        dezenas = data.get("dezenas", [])
 
+        # 🔥 MONTA PADRÃO PRO SEU HTML
         resultado = {
-            "concurso": data.get("numero"),
-            "data": data.get("dataApuracao"),
+            "concurso": data.get("concurso"),
+            "data": data.get("data"),
             "numeros": " - ".join(dezenas),
-            "status": "Acumulou" if data.get("acumulado") else "Não acumulou",
-            "local": data.get("nomeMunicipioUFSorteio"),
-            "ganhadores": data.get("quantidadeGanhadores"),
+            "status": "Acumulou" if data.get("acumulou") else "Não acumulou",
+            "local": data.get("local", "Não informado"),
+            "ganhadores": data.get("premiacoes", [{}])[0].get("ganhadores", 0),
             "proximo_premio": data.get("valorEstimadoProximoConcurso", 0),
-            "premios": data.get("listaRateioPremio", [])
+            "premios": []
         }
+
+        # 🎯 FORMATA PREMIOS (PADRÃO QUE VOCÊ QUER)
+        for p in data.get("premiacoes", []):
+            resultado["premios"].append({
+                "descricaoFaixa": p.get("descricao"),
+                "numeroDeGanhadores": p.get("ganhadores"),
+                "valorPremio": p.get("valorPremio")
+            })
 
         return resultado
 
@@ -55,17 +61,12 @@ def buscar(loteria):
         return {"erro": str(e)}
 
 
-# 🎰 ROTAS AUTOMÁTICAS
+# 🎰 ROTAS
 @app.route("/<tipo>")
 def rota(tipo):
-
-    if tipo not in ROTAS:
-        return jsonify({"erro": "Loteria inválida"})
-
-    dados = buscar(ROTAS[tipo])
-    return jsonify(dados)
+    return jsonify(buscar(tipo))
 
 
-# ▶️ RODAR LOCAL / RENDER
+# ▶️ RODAR
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
