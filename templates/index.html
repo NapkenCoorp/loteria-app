@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<title>Loterias</title>
+
+<style>
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+  margin:0;
+  background:#0f172a;
+  color:#fff;
+}
+
+/* HEADER */
+.header{
+  background:linear-gradient(90deg,#0066b3,#009639);
+  padding:18px;
+  text-align:center;
+  font-size:22px;
+  font-weight:600;
+}
+
+/* MENU */
+.nav{
+  display:flex;
+  overflow-x:auto;
+  padding:12px;
+  gap:10px;
+}
+
+.nav button{
+  min-width:120px;
+  padding:12px;
+  border:none;
+  border-radius:14px;
+  background:#1e293b;
+  color:#fff;
+  font-size:16px;
+  font-weight:600;
+  position:relative;
+  transition:0.25s;
+}
+
+/* MICRO INTERAÇÃO CLICK */
+.nav button:active{
+  transform:scale(0.92);
+}
+
+/* ATIVO */
+.nav button.ativo{
+  background:#22c55e;
+  color:#000;
+  transform:scale(1.05);
+}
+
+/* BARRA DESLIZANTE */
+.nav button.ativo::after{
+  content:"";
+  position:absolute;
+  bottom:-6px;
+  left:20%;
+  width:60%;
+  height:4px;
+  border-radius:10px;
+  background:#22c55e;
+  animation:slideBar 0.3s ease;
+}
+
+@keyframes slideBar{
+  from{width:0;}
+  to{width:60%;}
+}
+
+/* CARD */
+.card{
+  background:#1e293b;
+  margin:15px;
+  padding:20px;
+  border-radius:20px;
+  text-align:center;
+  box-shadow:0 10px 30px rgba(0,0,0,0.4);
+  animation:fade 0.4s ease;
+}
+
+@keyframes fade{
+  from{opacity:0; transform:translateY(10px);}
+  to{opacity:1; transform:translateY(0);}
+}
+
+/* BOLAS */
+.bola{
+  display:inline-flex;
+  width:50px;height:50px;
+  align-items:center;justify-content:center;
+  background:#22c55e;
+  color:#000;
+  border-radius:50%;
+  margin:6px;
+  font-weight:bold;
+
+  opacity:0;
+  transform:scale(0.5);
+  animation:pop 0.4s forwards;
+}
+
+@keyframes pop{
+  to{opacity:1; transform:scale(1);}
+}
+
+/* PRÊMIOS */
+.ganhadores{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-top:15px;
+}
+
+.box{
+  background:#0f172a;
+  border-radius:14px;
+  padding:12px;
+  font-size:14px;
+  animation:fadeUp 0.4s ease;
+}
+
+/* DESTAQUE */
+.destaque{
+  background:#16a34a !important;
+  animation:pulse 1s infinite;
+}
+
+@keyframes pulse{
+  0%{transform:scale(1);}
+  50%{transform:scale(1.05);}
+  100%{transform:scale(1);}
+}
+
+@keyframes fadeUp{
+  from{opacity:0; transform:translateY(8px);}
+  to{opacity:1; transform:translateY(0);}
+}
+
+/* BOTÃO VOZ */
+.btn{
+  margin-top:15px;
+  padding:14px;
+  width:100%;
+  border:none;
+  border-radius:14px;
+  font-size:16px;
+  font-weight:bold;
+  background:#0066b3;
+  color:#fff;
+  transition:0.2s;
+}
+
+.btn:active{
+  transform:scale(0.95);
+}
+
+.btn.ativo{
+  background:#dc2626;
+}
+
+/* TEXTO */
+.titulo{ font-size:20px; font-weight:bold; }
+.info{ margin-top:6px; opacity:0.9; }
+
+</style>
+</head>
+
+<body>
+
+<div class="header">🎰 Loterias Caixa</div>
+
+<div class="nav">
+<button onclick="trocar('mega', this)">Mega</button>
+<button onclick="trocar('quina', this)">Quina</button>
+<button onclick="trocar('lotofacil', this)">Lotofácil</button>
+<button onclick="trocar('lotomania', this)">Lotomania</button>
+<button onclick="trocar('dupla', this)">Dupla</button>
+<button onclick="trocar('timemania', this)">Time</button>
+<button onclick="trocar('diadesorte', this)">Dia</button>
+<button onclick="trocar('supersete', this)">Sete</button>
+</div>
+
+<div class="card">
+<div id="res">Carregando...</div>
+<button id="btnVoz" class="btn" onclick="toggleVoz()">🔊 Ouvir números</button>
+</div>
+
+<script>
+
+let numeros=[];
+let falando=false;
+
+// VOZ
+function toggleVoz(){
+  if(falando){
+    speechSynthesis.cancel();
+    falando=false;
+    atualizarBotao();
+    return;
+  }
+
+  falando=true;
+  atualizarBotao();
+  falar();
+}
+
+function atualizarBotao(){
+  let b=document.getElementById("btnVoz");
+  b.innerText=falando?"⛔ Parar":"🔊 Ouvir números";
+  b.classList.toggle("ativo",falando);
+}
+
+function falar(){
+  let i=0;
+
+  function loop(){
+    if(!falando||i>=numeros.length){
+      falando=false;
+      atualizarBotao();
+      return;
+    }
+
+    let u=new SpeechSynthesisUtterance(numeros[i]);
+    u.lang="pt-BR";
+    u.rate=0.85;
+
+    u.onend=()=>{
+      i++;
+      setTimeout(loop,400);
+    };
+
+    speechSynthesis.speak(u);
+  }
+
+  loop();
+}
+
+// TROCAR
+function trocar(tipo, el){
+
+  speechSynthesis.cancel();
+  falando=false;
+  atualizarBotao();
+
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("ativo"));
+  el.classList.add("ativo");
+
+  carregar(tipo);
+}
+
+// CARREGAR
+function carregar(tipo){
+
+ fetch("/"+tipo)
+ .then(r=>r.json())
+ .then(d=>{
+
+  numeros=[];
+
+  let bolas="";
+  d.numeros.split(" - ").forEach((n,i)=>{
+    bolas+=`<div class="bola" style="animation-delay:${i*0.1}s">${n}</div>`;
+    numeros.push(n);
+  });
+
+  let premiosHTML="";
+
+  d.premios.forEach((p,i)=>{
+
+    let destaque = (i===0 && p.ganhadores>0) ? "destaque" : "";
+
+    premiosHTML+=`
+      <div class="box ${destaque}">
+        <div>🎯 ${p.acertos}</div>
+        <div>👥 ${p.ganhadores}</div>
+        <div>💰 ${p.valor}</div>
+      </div>
+    `;
+  });
+
+  document.getElementById("res").innerHTML=`
+    <div class="titulo">Concurso ${d.concurso}</div>
+    <div class="info">${d.data}</div>
+
+    <div>${bolas}</div>
+
+    <div class="titulo">${d.status}</div>
+
+    <div class="ganhadores">
+      ${premiosHTML}
+    </div>
+  `;
+ });
+}
+
+// START
+window.onload = () => {
+  let primeiro=document.querySelector(".nav button");
+  trocar("mega", primeiro);
+};
+
+</script>
+
+</body>
+</html>
